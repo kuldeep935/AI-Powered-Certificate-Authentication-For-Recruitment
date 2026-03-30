@@ -3,6 +3,7 @@ import { Mail, Lock, LogIn, User, Building, Landmark } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 const Header = () => (
     <header className="bg-blue-800 text-white shadow-lg p-4">
@@ -10,9 +11,9 @@ const Header = () => (
             <h1 className="text-xl font-bold tracking-wider">AI-CertiAuth</h1>
             <nav>
                 <ul className="flex space-x-6 text-sm font-medium">
-                    <li><a href="#about" className="hover:text-gray-300 transition"><Link to={"/about"}>About</Link></a></li>
-                    <li><a href="#features" className="hover:text-gray-300 transition"><Link to={"/feature"}>Features</Link></a></li>
-                    <li><a href="#contact" className="hover:text-gray-300 transition"><Link to={"/"}>Contact</Link></a></li>
+                    <li><Link to={"/about"} className="hover:text-gray-300 transition">About</Link></li>
+                    <li><Link to={"/feature"} className="hover:text-gray-300 transition">Features</Link></li>
+                    <li><Link to={"/"} className="hover:text-gray-300 transition">Contact</Link></li>
                 </ul>
             </nav>
         </div>
@@ -69,7 +70,7 @@ const LoginForm = () => {
         setLoading(true);
 
         try{
-            const response = await axios.post('https://ai-powered-certificate-authentication.onrender.com/api/auth/login', {
+            const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
                 email,
                 password,
                 role

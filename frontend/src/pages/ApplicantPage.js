@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UserCircle, Bell, Upload, FileText, CheckCircle, Clock, XCircle, AlertTriangle, FileInput } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { UserCircle, Bell, Upload, FileText, CheckCircle, Clock, XCircle, AlertTriangle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 
 
 const initialCertificates = [];
@@ -29,6 +30,7 @@ const App = () => {
   const userEmail = localStorage.getItem('userEmail') || 'User Name!';
   const userName = `${userEmail}`;
   const organizationName = "AI-CertiAuth";
+  const navigate = useNavigate();
 
   useEffect(() => {
         const fetchUserData = async () => {
@@ -39,7 +41,7 @@ const App = () => {
             }
 
             try {
-                const response = await axios.get(`http://localhost:5000/api/files/profile?email=${userEmail}`);
+                const response = await axios.get(`${API_BASE_URL}/api/files/profile?email=${userEmail}`);
                 if (response.data.success) {
                     console.log("Fetched profile data:", response.data);
                     setResumeUrl(response.data.user.resumeUrl || '');
@@ -75,12 +77,12 @@ const App = () => {
     setUploading(true);
 
     try{
-      const response = await axios.post('https://ai-powered-certificate-authentication.onrender.com/api/files/uploadResume', formData);
+      const response = await axios.post(`${API_BASE_URL}/api/files/uploadResume`, formData);
 
       const resumeUrl = response.data.fileUrl;
       const userEmail = localStorage.getItem('userEmail');
 
-      const dbResponse = await axios.post('https://ai-powered-certificate-authentication.onrender.com/api/files/update-db', {
+      const dbResponse = await axios.post(`${API_BASE_URL}/api/files/update-db`, {
         email: userEmail,
         resumeUrl: resumeUrl,
         fileName: file.name
@@ -146,13 +148,13 @@ const App = () => {
       const formData = new FormData();
       formData.append('certificate', file);
 
-      const uploadRes = await axios.post('http://localhost:5000/api/files/uploadCertificate', formData);
+      const uploadRes = await axios.post(`${API_BASE_URL}/api/files/uploadCertificate`, formData);
       if (!uploadRes.data || !uploadRes.data.success) throw new Error(uploadRes.data?.message || 'Upload failed');
 
       const certificateUrl = uploadRes.data.fileUrl;
       const email = localStorage.getItem('userEmail');
 
-      const dbRes = await axios.post('http://localhost:5000/api/files/certificates/update-db', {
+      const dbRes = await axios.post(`${API_BASE_URL}/api/files/certificates/update-db`, {
         email,
         certificateUrl,
         fileName: file.name
@@ -174,9 +176,15 @@ const App = () => {
     }
   };
 
-  const handleVerifyAction = (certId, fileName) => {
-    console.log(`User requested verification for: ${fileName}`);
-    alert(`Verification request sent for ${fileName}. We'll notify you soon.`);
+  const handleVerifyAction = (cert) => {
+    const fallbackName = userEmail.split('@')[0] || userEmail;
+    navigate('/verify', {
+      state: {
+        name: fallbackName,
+        certId: cert?.id || '',
+        source: cert?.fileName || '',
+      },
+    });
   };
 
   return (
@@ -186,6 +194,7 @@ const App = () => {
         <h1 className="text-2xl font-extrabold tracking-wider">{organizationName}</h1>
         <nav className="flex items-center space-x-6">
           <Link to="/jobs" className="text-gray-300 hover:text-white transition hidden sm:inline">Search Jobs</Link>
+          <Link to="/verify" className="text-gray-300 hover:text-white transition hidden sm:inline">Verify</Link>
           
           <div className="flex items-center space-x-4 border-l border-gray-700 pl-4">
             <span className="text-sm font-medium hidden md:inline">Profile</span>
@@ -218,6 +227,7 @@ const App = () => {
                 </h3>
                 <button 
                     onClick={handleResumeUpload}
+                    disabled={uploading}
                     className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200 transition"
                     aria-label="Upload Resume"
                 >
@@ -244,6 +254,7 @@ const App = () => {
                 />
                 <button
                     onClick={handleCertificateUpload}
+                    disabled={certUploading}
                     className="p-2 bg-blue-600 text-white hover:bg-blue-700 transition"
                     aria-label="Add Certificate"
                 >
@@ -304,7 +315,7 @@ const App = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {isVerifyActionNeeded ? (
                         <button 
-                          onClick={() => handleVerifyAction(cert.id, cert.fileName)}
+                          onClick={() => handleVerifyAction(cert)}
                           className="text-red-600 font-semibold underline hover:text-red-800 transition"
                         >
                           {cert.actionRequired}

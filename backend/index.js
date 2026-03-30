@@ -33,3 +33,5 @@ mongoose
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
+const blockchainRoutes = require("./src/routes/blockchainRoutes");
+app.use("/blockchain", blockchainRoutes);

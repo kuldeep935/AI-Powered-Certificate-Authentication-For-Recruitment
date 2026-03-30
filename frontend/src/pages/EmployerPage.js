@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserCircle, Bell, Plus, Trash2 } from 'lucide-react';
+import { API_BASE_URL } from '../config/api';
 
 const initialJobPosts = [
   {
@@ -112,7 +113,7 @@ export default function App() {
     console.log('Posting job payload:', payload);
 
     try {
-      const res = await axios.post('http://localhost:5000/api/jobs', payload);
+      const res = await axios.post(`${API_BASE_URL}/api/jobs`, payload);
       console.log('POST /api/jobs response:', res);
 
       if (res.data && res.data.success) {
@@ -171,6 +172,7 @@ export default function App() {
           <Link to={"/"} className="text-gray-300 hover:text-white transition hidden sm:inline">Contact</Link> */}
           
           <div className="flex items-center space-x-4 border-l border-gray-700 pl-4">
+            <Link to="/verify" className="text-gray-300 hover:text-white transition hidden sm:inline">Verify</Link>
             <span className="text-sm font-medium hidden md:inline">Profile</span>
             <UserCircle className="w-6 h-6 cursor-pointer hover:text-blue-300" />
             <Bell className="w-6 h-6 cursor-pointer hover:text-blue-300" />

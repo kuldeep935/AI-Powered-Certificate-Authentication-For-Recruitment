@@ -143,9 +143,9 @@ const App = () => {
                     Join the verified network and unlock a world of trust and opportunity.
                 </p>
                 <div className="mt-8 animate-fade-in" style={{'--delay': '400ms'}}>
-                    <a href="#login" className="bg-white text-blue-700 px-8 py-4 rounded-full text-lg font-bold hover:bg-gray-100 transition transform hover:scale-105 shadow-xl">
+                    <Link to="/signup" className="bg-white text-blue-700 px-8 py-4 rounded-full text-lg font-bold hover:bg-gray-100 transition transform hover:scale-105 shadow-xl inline-block">
                         Register Now
-                    </a>
+                    </Link>
                 </div>
             </section>
         

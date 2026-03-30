@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import SearchBar from '../components/SearchBar';
 import JobCard from '../components/JobCard';
-import { UserCircle, Bell, Upload, FileText, CheckCircle, Clock, XCircle, AlertTriangle, FileInput } from 'lucide-react';
+import { UserCircle, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 export default function SearchJobs() {
   const [q, setQ] = useState('');
@@ -18,7 +19,7 @@ export default function SearchJobs() {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.get(`http://localhost:5000/api/jobs?q=${encodeURIComponent(q)}`);
+      const res = await axios.get(`${API_BASE_URL}/api/jobs?q=${encodeURIComponent(q)}`);
       const items = Array.isArray(res.data) ? res.data : (res.data.jobs || res.data.data || res.data);
       setJobs(items || []);
     } catch (err) {
@@ -43,16 +44,9 @@ export default function SearchJobs() {
     setApplying(true);
     setApplyMessage('');
     try {
-      const res = await axios.post(`http://localhost:5000/api/jobs/${job._id || job.id}/apply`, {
-        applicantEmail: email,
-        resumeUrl,
-      });
-
-      if (res.data && res.data.success) {
-        setApplyMessage('Application submitted successfully.');
-      } else {
-        setApplyMessage(res.data?.message || 'Application request sent');
-      }
+      setApplyMessage(
+        `Application prepared for ${job.title}. Resume: ${resumeUrl ? 'attached' : 'missing'}.`
+      );
     } catch (err) {
       console.error('Apply error', err);
       const msg = err.response?.data?.message || err.message || 'Failed to apply';

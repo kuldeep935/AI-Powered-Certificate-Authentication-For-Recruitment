@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserCircle, Bell, Plus, Upload, CheckCircle, Clock } from 'lucide-react';
+import { UserCircle, Bell, Plus, CheckCircle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const initialCertData = [
@@ -76,6 +76,7 @@ const App = () => {
           <a className="text-gray-300 hover:text-white transition hidden sm:inline"><Link to={"/"}>Contact</Link></a> */}
           
           <div className="flex items-center space-x-4 border-l border-gray-700 pl-4">
+            <Link to="/verify" className="text-gray-300 hover:text-white transition hidden sm:inline">Verify</Link>
             <span className="text-sm font-medium hidden md:inline">Profile</span>
             <UserCircle className="w-6 h-6 cursor-pointer hover:text-blue-300" />
             <Bell className="w-6 h-6 cursor-pointer hover:text-blue-300" />
