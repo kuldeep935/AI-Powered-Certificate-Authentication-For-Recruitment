@@ -75,7 +75,6 @@ exports.loginUser = async(req, res) => {
             { expiresIn: '1d' }
         );
         // console.log(`User ${email} logged in as ${role}`); // Debug log
-
         res.status(200).json({ message: 'Login successful', token, 
             userEmail: user.email,
             resumeUrl: user.resumeUrl || null,

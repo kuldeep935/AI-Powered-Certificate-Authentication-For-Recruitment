@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UserCircle, Bell, Upload, FileText, CheckCircle, Clock, XCircle, AlertTriangle } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { UserCircle, Bell, Upload, FileText, CheckCircle, Clock, XCircle, AlertTriangle, FileInput } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config/api';
 
@@ -176,15 +176,9 @@ const App = () => {
     }
   };
 
-  const handleVerifyAction = (cert) => {
-    const fallbackName = userEmail.split('@')[0] || userEmail;
-    navigate('/verify', {
-      state: {
-        name: fallbackName,
-        certId: cert?.id || '',
-        source: cert?.fileName || '',
-      },
-    });
+  const handleVerifyAction = (certId, fileName) => {
+    console.log(`User requested verification for: ${fileName}`);
+    alert(`Verification request sent for ${fileName}. We'll notify you soon.`);
   };
 
   return (
@@ -239,7 +233,7 @@ const App = () => {
             <p className="text-base font-semibold text-blue-700 underline truncate">{currentResume}</p>
             </a>
           </div>
-
+          
           <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200">
             <h3 className="text-xl font-bold text-gray-800 mb-4">
                 Add new certificate to your profile :
@@ -263,7 +257,9 @@ const App = () => {
             </div>
           </div>
         </div>
-
+        <p className="text-lg text-red-600 font-bold mb-4 mt-4">
+            *Pending & Not Verified Certificates will not send to recruiters at time of applying for Jobs.
+        </p>
         <h3 className="mb-5 text-xl font-bold text-gray-800 border-b pb-2">
           Your Uploaded Certificates :
         </h3>
@@ -284,6 +280,9 @@ const App = () => {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                   Action Required
                 </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  AI Validation
+                </th>
               </tr>
             </thead>
             
@@ -291,10 +290,14 @@ const App = () => {
               {certificates.map((cert) => {
                 const { text, icon: StatusIcon, bgColor, borderColor } = getStatusInfo(cert.status);
                 const isVerifyActionNeeded = cert.actionRequired !== 'No Action Required';
+                
+                // 🆕 Determine if this row is currently loading or already finished
+                const isLoading = validatingIds[cert.id] || false;
+                const isFinished = cert.status === 'Verified' || cert.status === 'Not Verified';
 
                 return (
                   <tr key={cert.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 text-sm max-w-xs break-words whitespace-normal">
                       {cert.url ? (
                         <a href={cert.url} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">
                           {cert.fileName}
@@ -303,7 +306,7 @@ const App = () => {
                         cert.fileName
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 text-sm max-w-xs break-words whitespace-normal">
                       <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${text} ${bgColor} border ${borderColor}`}>
                         <StatusIcon className="w-3 h-3 mr-1" />
                         {cert.status}
@@ -312,7 +315,7 @@ const App = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {cert.uploadedDate}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-6 py-4 text-sm max-w-xs break-words whitespace-normal">
                       {isVerifyActionNeeded ? (
                         <button 
                           onClick={() => handleVerifyAction(cert)}
@@ -325,6 +328,33 @@ const App = () => {
                           {cert.actionRequired}
                         </span>
                       )}
+                    </td>
+                    
+                    {/* 🆕 The New Validate Button Column */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        onClick={() => handleValidateCertificate(cert.id)}
+                        disabled={isFinished || isLoading}
+                        className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white transition-colors
+                          ${isFinished 
+                            ? 'bg-gray-400 cursor-not-allowed' // Disabled state (Already Validated)
+                            : isLoading 
+                              ? 'bg-blue-400 cursor-not-allowed' // Disabled state (Currently Loading)
+                              : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500' // Active state
+                          }
+                        `}
+                      >
+                        {/* Tailwind SVG Spinner (Only shows when isLoading is true) */}
+                        {isLoading && (
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        )}
+                        
+                        {/* Dynamic Button Text */}
+                        {isLoading ? 'Validating...' : isFinished ? 'Done' : 'Validate'}
+                      </button>
                     </td>
                   </tr>
                 );

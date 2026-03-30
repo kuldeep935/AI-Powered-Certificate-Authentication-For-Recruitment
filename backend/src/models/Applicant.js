@@ -21,7 +21,7 @@ const ApplicantSchema = new mongoose.Schema({
         url: { type: String },
         status: { type: String, default: 'Pending' },
         uploadedDate: { type: String },
-        actionRequired: { type: String, default: 'No Action Required' }
+        actionRequired: { type: String, default: 'No Action Required' },
       }
     ]
 });

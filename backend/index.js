@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
+const axios = require('axios');
 
 dotenv.config();
 
@@ -24,6 +25,14 @@ app.use('/api/jobs', jobRoutes);
 
 app.get('/', (req, res) => {
   res.send('Backend is running');
+});
+
+const { validateCertificateIntegrity } = require('../backend/src/services/QRvalidation');
+
+app.post('/validate-qr/:applicantId/:certificateId', async (req, res) => {
+    const { applicantId, certificateId } = req.params;
+    const result = await validateCertificateIntegrity(applicantId, certificateId);
+    res.json({ success: result.is_verified, data: result });
 });
 
 mongoose
