@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  python_service:
+    build: ./backend_python
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/certauth
+      - PYTHON_SERVICE_URL=http://python_service:8000
+    depends_on:
+      - mongodb
+      - python_service
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_BASE_URL: http://localhost:5000/api
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

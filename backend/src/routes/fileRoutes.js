@@ -1,47 +1,47 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const multer = require('multer');
-const { resumeStorage, certificateStorage } = require('../config/cloudinary');
-const { updateResume, updateCertificate, getUserProfile } = require('../controllers/userControllers');
+const multer = require("multer");
+const streamifier = require("streamifier");
+const cloudinary = require("../config/cloudinary");
+const { protect } = require("../middleware/authMiddleware");
 
-const uploadResume = multer({ storage: resumeStorage });
-const uploadCertificate = multer({ storage: certificateStorage });
+const storage = multer.memoryStorage();
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
-router.post('/uploadResume', uploadResume.single('resume'), (req, res) => {
-    try{
-        if(!req.file){
-            return res.status(400).json({ message:'No file uploaded'});
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'Resume uploaded successfully',
-            fileUrl: req.file.path
-        })
-    }
-    catch(err){
-        res.status(500).json({ message: 'Server Error', error: err.message });
-    }
-});
-
-router.post('/uploadCertificate', uploadCertificate.single('certificate'), (req, res) => {
+router.post("/upload", protect, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+      return res.status(400).json({ success: false, message: "No file provided", data: null });
     }
-
-    res.status(200).json({
+    const uploadToCloudinary = () =>
+      new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: "certauth/certificates", resource_type: "auto" },
+          (error, result) => (error ? reject(error) : resolve(result))
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+      });
+    const result = await uploadToCloudinary();
+    res.json({
       success: true,
-      message: 'Certificate uploaded successfully',
-      fileUrl: req.file.path
+      message: "Uploaded",
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server Error', error: err.message });
+    res.status(500).json({ success: false, message: err.message, data: null });
   }
 });
 
-router.post('/update-db', updateResume);
-router.post('/certificates/update-db', updateCertificate);
-router.get('/profile', getUserProfile); 
+router.delete("/:publicId", protect, async (req, res) => {
+  try {
+    const publicId = decodeURIComponent(req.params.publicId);
+    await cloudinary.uploader.destroy(publicId);
+    res.json({ success: true, message: "File deleted", data: null });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, data: null });
+  }
+});
 
 module.exports = router;

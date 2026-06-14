@@ -1,130 +1,84 @@
-from fastapi import FastAPI, HTTPException
+import os
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import cv2
-import numpy as np
-import urllib.request
-import re 
-from pyzbar.pyzbar import decode
-from playwright.sync_api import sync_playwright
-import easyocr 
-import pytesseract
-from urlextract import URLExtract
-pytesseract.pytesseract.tesseract_cmd = r"C:\Users\Nitin\Documents\GitHub\AI-Powered-Certificate-Authentication-For-Recruitment\tesseract.exe"
+from typing import Optional
+import uvicorn
 
-app = FastAPI()
+from ocr_service import extract_text_from_url
+from qr_service import detect_qr_from_url, validate_qr_url
+from nlp_service import normalize_certificate_data, extract_certificate_fields
 
-print("Loading EasyOCR AI model... (This takes a few seconds)")
-reader = easyocr.Reader(['en'], gpu=False)
-print("✅ EasyOCR loaded and ready!")
+app = FastAPI(title="CertAuth Python Service", version="1.0.0")
 
-print("Loading URLExtract...")
-url_extractor = URLExtract()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-class ValidationRequest(BaseModel):
-    image_url: str
 
-def fetch_image_from_url(url):
+class CertificateRequest(BaseModel):
+    file_url: str
+    extracted_text: Optional[str] = None
+
+
+class ExtractionRequest(BaseModel):
+    file_url: str
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/verify-certificate")
+async def verify_certificate(request: CertificateRequest):
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        response = urllib.request.urlopen(req)
-        arr = np.asarray(bytearray(response.read()), dtype=np.uint8)
-        img = cv2.imdecode(arr, -1)
-        if img is None:
-            raise ValueError("Could not decode image.")
-        
-        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        large_img = cv2.resize(gray_img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-        return large_img
-    
+        qr_result = detect_qr_from_url(request.file_url)
+        qr_valid = False
+        qr_url = None
+
+        if qr_result["found"]:
+            qr_url = qr_result["data"]
+            qr_valid = validate_qr_url(qr_url)
+
+        return {
+            "success": True,
+            "qr_found": qr_result["found"],
+            "qr_valid": qr_valid,
+            "qr_url": qr_url,
+            "qr_data": qr_result.get("data"),
+        }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch image: {str(e)}")
+        return {"success": False, "qr_found": False, "qr_valid": False, "error": str(e)}
 
-def get_word_set(text):
-    """Cleans text and returns a set of unique, meaningful words (3+ letters)"""
-    words = re.findall(r'\b[a-z]{3,}\b', text.lower())
-    stop_words = {"the", "and", "for", "with", "this", "that", "has", "been"}
-    return set(w for w in words if w not in stop_words)
 
-def clean_url(url):
-    url = url.strip()
-
-    # Fix protocol
-    url = url.replace("https:/", "https://")
-    url = url.replace("http:/", "http://")
-
-    # Fix missing 'www.'
-    if "mygreatlearning.com" in url and "www." not in url:
-        url = url.replace("https://", "https://www.")
-
-    return url
-
-@app.post("/verify-qr-and-data")
-def verify_qr_and_data(data: ValidationRequest):
-    img = fetch_image_from_url(data.image_url)
-    
-    # --- 1. Extract Text using EasyOCR ---
-    # detail=0 returns a simple list of strings instead of complex bounding box coordinates
-    text_list = reader.readtext(img, detail=0)
-    cert_text = " ".join(text_list)
-
-    cert_words = get_word_set(cert_text)
-
-    cert_text_string = pytesseract.image_to_string(img)
-    cert_text_string = clean_url(cert_text_string)
-    if len(cert_words) == 0:
-        return {"status": "Failed", "reason": "Could not read any text from the certificate image.", "is_verified": False}
-
-    print(f"URL Text:", cert_text_string)
-    # --- 2. Scan for QR Code and URL in certificate---
-    qr_data = decode(img)
-    qr_url = None
-    if len(qr_data) > 0:
-        qr_url = qr_data[0].data.decode('utf-8')
-        print(f"Found URL via QR Code: {qr_url}")
-    else:
-        found_urls = url_extractor.find_urls(cert_text_string)
-        if len(found_urls) > 0:
-            qr_url = found_urls[0] # Grab the first URL found
-            
-            # Safely add https:// if the printed link was missing it (e.g. Great Learning)
-            if not qr_url.startswith('http'):
-                qr_url = 'https://' + qr_url
-                
-            print(f"✅ Found URL via urlextract: {qr_url}")
-    
-    if not qr_url:
-        return {"status": "NO_QR_Link", "reason": "No QR code or URL found in the certificate image.", "is_verified": False, "qr_link": None}
-    
-    # --- 3. Scrape the Verification Webpage ---
-    page_text = ""
+@app.post("/extract-data")
+async def extract_data(request: ExtractionRequest):
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(qr_url, wait_until="networkidle", timeout=15000)
-            page_text = page.evaluate("document.body.innerText")
-            browser.close()
+        raw_text = extract_text_from_url(request.file_url)
+        fields = extract_certificate_fields(raw_text)
+        normalized = normalize_certificate_data(fields)
+
+        return {
+            "success": True,
+            "data": {
+                "rawText": raw_text,
+                "candidateName": normalized.get("candidate_name"),
+                "issuingInstitution": normalized.get("issuing_institution"),
+                "courseName": normalized.get("course_name"),
+                "issueDate": normalized.get("issue_date"),
+                "expiryDate": normalized.get("expiry_date"),
+                "certificateId": normalized.get("certificate_id"),
+                "skills": normalized.get("skills", []),
+            },
+        }
     except Exception as e:
-        return {"status": "Failed", "reason": "Could not load the verification webpage.", "is_verified": False}
+        return {"success": False, "error": str(e), "data": {}}
 
-    # --- 4. Compare the Two Texts ---
-    page_words = get_word_set(page_text)
-    matching_words = cert_words.intersection(page_words)
-    
-    # print(page_words)
-    # print(cert_words)
-    # Calculate the percentage
-    match_percentage = (len(matching_words) / len(cert_words)) * 100
-    is_verified = match_percentage >= 10.00 and qr_url is not None
 
-    return {
-        "status": "Verified" if is_verified else "Data Mismatch",
-        "match_percentage": round(match_percentage, 2),
-        "matched_words_count": len(matching_words),
-        "total_cert_words": len(cert_words),
-        "reason": f"Matched {round(match_percentage, 2)}% of words between certificate and website.",
-        "is_verified": is_verified,
-        "qr_link": qr_url
-    }
-
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.environ.get("PORT", "8000")), reload=True)

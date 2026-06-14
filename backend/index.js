@@ -1,46 +1,48 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const path = require('path');
-const dotenv = require('dotenv');
-const axios = require('axios');
-
-dotenv.config();
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.json());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-const authRoutes = require('./src/routes/authRoutes');
-app.use('/api/auth', authRoutes);
+app.use("/api/auth", require("./src/routes/authRoutes"));
+app.use("/api/files", require("./src/routes/fileRoutes"));
+app.use("/api/jobs", require("./src/routes/jobRoutes"));
+app.use("/api/blockchain", require("./src/routes/blockchainRoutes"));
+app.use("/api/certificates", require("./src/routes/certificateRoutes"));
+app.use("/api/chatbot", require("./src/routes/chatbotRoutes"));
 
-const fileRoutes = require('./src/routes/fileRoutes');
-app.use('/api/files', fileRoutes);
+app.get("/health", (req, res) =>
+  res.json({ success: true, message: "OK", data: { status: "ok", timestamp: new Date().toISOString() } })
+);
 
-// Jobs routes
-const jobRoutes = require('./src/routes/jobRoutes');
-app.use('/api/jobs', jobRoutes);
-
-app.get('/', (req, res) => {
-  res.send('Backend is running');
+app.use((err, req, res, next) => {
+  const message = err.message || "Internal server error";
+  res.status(err.status || 500).json({ success: false, message, data: null });
 });
 
-const { validateCertificateIntegrity } = require('../backend/src/services/QRvalidation');
-
-app.post('/validate-qr/:applicantId/:certificateId', async (req, res) => {
-    const { applicantId, certificateId } = req.params;
-    const result = await validateCertificateIntegrity(applicantId, certificateId);
-    res.json({ success: result.is_verified, data: result });
-});
+const mongoUri =
+  process.env.MONGODB_URI || process.env.MONGO_URI || "mongodb://localhost:27017/certauth";
 
 mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB connected'))
-    .catch((err) => console.log(err));
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-const blockchainRoutes = require("./src/routes/blockchainRoutes");
-app.use("/blockchain", blockchainRoutes);
+  .connect(mongoUri)
+  .then(() => {
+    const port = process.env.PORT || 5000;
+    app.listen(port, () => {
+      process.stdout.write(`Backend running on port ${port}\n`);
+    });
+    process.stdout.write("MongoDB connected\n");
+  })
+  .catch((err) => {
+    process.stderr.write(`MongoDB connection error: ${err.message}\n`);
+    process.exit(1);
+  });

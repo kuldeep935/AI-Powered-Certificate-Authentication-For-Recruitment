@@ -1,22 +1,19 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { validateAllCertificates } = require('../controllers/certificateController');
+const { protect } = require("../middleware/authMiddleware");
+const { authorize } = require("../middleware/roleMiddleware");
+const certificateController = require("../controllers/certificateController");
 
-// POST route to trigger the bulk sweep
-router.post('/admin/certificates/validate-all', async (req, res) => {
-    try {
-        validateAllCertificates()
-            .then(stats => console.log("Background validation finished with stats:", stats))
-            .catch(err => console.error("Background validation crashed:", err));
-
-        res.status(200).json({ 
-            success: true, 
-            message: "Bulk validation started in the background. Check server logs for progress." 
-        });
-
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to start validation process." });
-    }
-});
+router.post(
+  "/upload-and-verify",
+  protect,
+  authorize("applicant"),
+  certificateController.uploadAndVerify
+);
+router.get("/my", protect, authorize("applicant"), certificateController.listMine);
+router.get("/", protect, authorize("employer", "institution"), certificateController.listAll);
+router.get("/:id", protect, certificateController.getOne);
+router.post("/issue", protect, authorize("institution"), certificateController.issue);
+router.post("/revoke/:id", protect, authorize("institution"), certificateController.revoke);
 
 module.exports = router;

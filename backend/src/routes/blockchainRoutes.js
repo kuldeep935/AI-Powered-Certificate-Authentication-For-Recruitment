@@ -1,19 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const bc = require("../blockchain");
+const { protect } = require("../middleware/authMiddleware");
+const { authorize } = require("../middleware/roleMiddleware");
+const blockchainController = require("../controllers/blockchainController");
 
-// ➕ Add Certificate
-router.post("/add", async (req, res) => {
-  const { name, certId } = req.body;
-  const hash = await bc.addCertificate(name, certId);
-  res.json({ hash });
-});
-
-// ✔ Verify Certificate
-router.post("/verify", async (req, res) => {
-  const { name, certId } = req.body;
-  const valid = await bc.verifyCertificate(name, certId);
-  res.json({ valid });
-});
+router.post("/add", protect, blockchainController.add);
+router.post("/verify", protect, blockchainController.verify);
+router.post("/hash", protect, blockchainController.hash);
 
 module.exports = router;
